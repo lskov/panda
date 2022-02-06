@@ -17,7 +17,6 @@ const int VOLKSWAGEN_MQB_MIN_ACCEL = -3500;             // Max decel 3.5 m/s2
 #define MSG_HCA_01      0x126   // TX by OP, Heading Control Assist steering torque
 #define MSG_GRA_ACC_01  0x12B   // TX by OP, ACC control buttons for cancel/resume
 #define MSG_ACC_07      0x12E   // TX by OP, ACC control instructions to the drivetrain coordinator
-#define MSG_ACC_13      0x2A7   // TX by OP, ACC unknown HUD status
 #define MSG_ACC_02      0x30C   // TX by OP, ACC HUD data to the instrument cluster
 #define MSG_ACC_04      0x324   // TX by OP, ACC HUD alerts and driving profile selection
 #define MSG_LDW_02      0x397   // TX by OP, Lane line recognition and text alerts
@@ -26,8 +25,7 @@ const int VOLKSWAGEN_MQB_MIN_ACCEL = -3500;             // Max decel 3.5 m/s2
 const CanMsg VOLKSWAGEN_MQB_STOCK_TX_MSGS[] = {{MSG_HCA_01, 0, 8}, {MSG_GRA_ACC_01, 0, 8}, {MSG_GRA_ACC_01, 2, 8}, {MSG_LDW_02, 0, 8}};
 #define VOLKSWAGEN_MQB_STOCK_TX_MSGS_LEN (sizeof(VOLKSWAGEN_MQB_STOCK_TX_MSGS) / sizeof(VOLKSWAGEN_MQB_TX_MSGS[0]))
 const CanMsg VOLKSWAGEN_MQB_LONG_TX_MSGS[] = {{MSG_HCA_01, 0, 8}, {MSG_ACC_02, 0, 8}, {MSG_ACC_04, 0, 8},
-                                              {MSG_ACC_06, 0, 8}, {MSG_ACC_07, 0, 8}, {MSG_ACC_13, 0, 8},
-                                              {MSG_LDW_02, 0, 8}};
+                                              {MSG_ACC_06, 0, 8}, {MSG_ACC_07, 0, 8}, {MSG_LDW_02, 0, 8}};
 #define VOLKSWAGEN_MQB_LONG_TX_MSGS_LEN (sizeof(VOLKSWAGEN_MQB_LONG_TX_MSGS) / sizeof(VOLKSWAGEN_MQB_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_mqb_addr_checks[] = {
@@ -299,8 +297,8 @@ static int volkswagen_mqb_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
       if ((addr == MSG_HCA_01) || (addr == MSG_LDW_02)) {
         // OP takes control of the Heading Control Assist and Lane Departure Warning messages from the camera
         bus_fwd = -1;
-        } else if (volkswagen_mqb_longitudinal && ((addr == MSG_ACC_06) || (addr == MSG_ACC_07) || (addr == MSG_ACC_02) ||
-                                                   (addr == MSG_ACC_04) || (addr == MSG_ACC_13))) {
+        } else if (volkswagen_mqb_longitudinal && ((addr == MSG_ACC_06) || (addr == MSG_ACC_07) ||
+                                                   (addr == MSG_ACC_02) || (addr == MSG_ACC_04))) {
         // If longitudinal control is enabled, OP takes control of ACC accel/braking and HUD messaging
         bus_fwd = -1;
       } else {
