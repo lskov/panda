@@ -37,8 +37,6 @@ AddrCheckStruct volkswagen_mqb_addr_checks[] = {
 #define VOLKSWAGEN_MQB_ADDR_CHECKS_LEN (sizeof(volkswagen_mqb_addr_checks) / sizeof(volkswagen_mqb_addr_checks[0]))
 addr_checks volkswagen_mqb_rx_checks = {volkswagen_mqb_addr_checks, VOLKSWAGEN_MQB_ADDR_CHECKS_LEN};
 
-const uint16_t VOLKSWAGEN_PARAM_LONG = 1;
-
 bool volkswagen_mqb_longitudinal = false;
 uint8_t volkswagen_crc8_lut_8h2f[256]; // Static lookup table for CRC8 poly 0x2F, aka 8H2F/AUTOSAR
 const uint16_t VOLKSWAGEN_PARAM_LONG = 1;
