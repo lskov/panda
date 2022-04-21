@@ -1,12 +1,12 @@
 const int VOLKSWAGEN_MQB_MAX_STEER = 300;               // 3.0 Nm (EPS side max of 3.0Nm with fault if violated)
-const int VOLKSWAGEN_MQB_MAX_RT_DELTA = 75;             // 4 max rate up * 50Hz send rate * 250000 RT interval / 1000000 = 50 ; 50 * 1.5 for safety pad = 75
+const int VOLKSWAGEN_MQB_MAX_RT_DELTA = 188;            // 4 max rate up * 50Hz send rate * 250000 RT interval / 1000000 = 50 ; 50 * 1.5 for safety pad = 75
 const uint32_t VOLKSWAGEN_MQB_RT_INTERVAL = 250000;     // 250ms between real time checks
-const int VOLKSWAGEN_MQB_MAX_RATE_UP = 4;               // 2.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
+const int VOLKSWAGEN_MQB_MAX_RATE_UP = 10;              // 2.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
 const int VOLKSWAGEN_MQB_MAX_RATE_DOWN = 10;            // 5.0 Nm/s RoC limit (EPS rack has own soft-limit of 5.0 Nm/s)
 const int VOLKSWAGEN_MQB_DRIVER_TORQUE_ALLOWANCE = 80;
 const int VOLKSWAGEN_MQB_DRIVER_TORQUE_FACTOR = 3;
-const int VOLKSWAGEN_MQB_MAX_ACCEL = 2000;              // Max accel 2.0 m/s2
-const int VOLKSWAGEN_MQB_MIN_ACCEL = -3500;             // Max decel 3.5 m/s2
+const int VOLKSWAGEN_MAX_ACCEL = 2000;                  // Max accel 2.0 m/s2
+const int VOLKSWAGEN_MIN_ACCEL = -3500;                 // Max decel 3.5 m/s2
 
 #define MSG_ESP_19      0x0B2   // RX from ABS, for wheel speeds
 #define MSG_LH_EPS_03   0x09F   // RX from EPS, for driver steering torque
@@ -14,6 +14,7 @@ const int VOLKSWAGEN_MQB_MIN_ACCEL = -3500;             // Max decel 3.5 m/s2
 #define MSG_TSK_06      0x120   // RX from ECU, for ACC status from drivetrain coordinator
 #define MSG_ACC_06      0x122   // TX by OP, ACC control instructions to the drivetrain coordinator
 #define MSG_MOTOR_20    0x121   // RX from ECU, for driver throttle input
+#define MSG_ACC_06      0x122   // TX by OP, ACC control instructions to the drivetrain coordinator
 #define MSG_HCA_01      0x126   // TX by OP, Heading Control Assist steering torque
 #define MSG_GRA_ACC_01  0x12B   // TX by OP, ACC control buttons for cancel/resume
 #define MSG_ACC_07      0x12E   // TX by OP, ACC control instructions to the drivetrain coordinator
@@ -23,10 +24,8 @@ const int VOLKSWAGEN_MQB_MIN_ACCEL = -3500;             // Max decel 3.5 m/s2
 
 // Transmit of GRA_ACC_01 is allowed on bus 0 and 2 to keep compatibility with gateway and camera integration
 const CanMsg VOLKSWAGEN_MQB_STOCK_TX_MSGS[] = {{MSG_HCA_01, 0, 8}, {MSG_GRA_ACC_01, 0, 8}, {MSG_GRA_ACC_01, 2, 8}, {MSG_LDW_02, 0, 8}};
-#define VOLKSWAGEN_MQB_STOCK_TX_MSGS_LEN (sizeof(VOLKSWAGEN_MQB_STOCK_TX_MSGS) / sizeof(VOLKSWAGEN_MQB_TX_MSGS[0]))
 const CanMsg VOLKSWAGEN_MQB_LONG_TX_MSGS[] = {{MSG_HCA_01, 0, 8}, {MSG_ACC_02, 0, 8}, {MSG_ACC_04, 0, 8},
                                               {MSG_ACC_06, 0, 8}, {MSG_ACC_07, 0, 8}, {MSG_LDW_02, 0, 8}};
-#define VOLKSWAGEN_MQB_LONG_TX_MSGS_LEN (sizeof(VOLKSWAGEN_MQB_LONG_TX_MSGS) / sizeof(VOLKSWAGEN_MQB_TX_MSGS[0]))
 
 AddrCheckStruct volkswagen_mqb_addr_checks[] = {
   {.msg = {{MSG_ESP_19, 0, 8, .check_checksum = false, .max_counter = 0U,  .expected_timestep = 10000U}, { 0 }, { 0 }}},
@@ -42,6 +41,8 @@ const uint16_t VOLKSWAGEN_PARAM_LONG = 1;
 
 bool volkswagen_mqb_longitudinal = false;
 uint8_t volkswagen_crc8_lut_8h2f[256]; // Static lookup table for CRC8 poly 0x2F, aka 8H2F/AUTOSAR
+const uint16_t VOLKSWAGEN_PARAM_LONG = 1;
+bool volkswagen_longitudinal = false;
 
 
 static uint8_t volkswagen_mqb_get_checksum(CANPacket_t *to_push) {
@@ -96,7 +97,7 @@ static const addr_checks* volkswagen_mqb_init(int16_t param) {
   controls_allowed = false;
   relay_malfunction_reset();
 #ifdef ALLOW_DEBUG
-  volkswagen_mqb_longitudinal = GET_FLAG(param, VOLKSWAGEN_PARAM_LONG);
+  volkswagen_longitudinal = GET_FLAG(param, VOLKSWAGEN_PARAM_LONG);
 #endif
   gen_crc_lookup_table(0x2F, volkswagen_crc8_lut_8h2f);
   return &volkswagen_mqb_rx_checks;
@@ -133,7 +134,7 @@ static int volkswagen_mqb_rx_hook(CANPacket_t *to_push) {
       update_sample(&torque_driver, torque_driver_new);
     }
 
-    if (volkswagen_mqb_longitudinal) {
+    if (volkswagen_longitudinal) {
       if (addr == MSG_GRA_ACC_01) {
         // Exit controls on Cancel, otherwise, enter controls on Set or Resume
         // Signal: GRA_ACC_01.GRA_Tip_Setzen
@@ -183,7 +184,7 @@ static int volkswagen_mqb_tx_hook(CANPacket_t *to_send, bool longitudinal_allowe
   int addr = GET_ADDR(to_send);
   int tx = 1;
 
-  if (volkswagen_mqb_longitudinal) {
+  if (volkswagen_longitudinal) {
     tx = msg_allowed(to_send, VOLKSWAGEN_MQB_LONG_TX_MSGS, sizeof(VOLKSWAGEN_MQB_LONG_TX_MSGS) / sizeof(VOLKSWAGEN_MQB_LONG_TX_MSGS[0]));
   } else {
     tx = msg_allowed(to_send, VOLKSWAGEN_MQB_STOCK_TX_MSGS, sizeof(VOLKSWAGEN_MQB_STOCK_TX_MSGS) / sizeof(VOLKSWAGEN_MQB_STOCK_TX_MSGS[0]));
@@ -266,7 +267,7 @@ static int volkswagen_mqb_tx_hook(CANPacket_t *to_send, bool longitudinal_allowe
     if (!controls_allowed && (desired_accel != 0)) {
       violation = 1;
     }
-    violation |= max_limit_check(desired_accel, VOLKSWAGEN_MQB_MAX_ACCEL, VOLKSWAGEN_MQB_MIN_ACCEL);
+    violation |= max_limit_check(desired_accel, VOLKSWAGEN_MAX_ACCEL, VOLKSWAGEN_MIN_ACCEL);
 
     if (violation) {
       tx = 0;
@@ -297,7 +298,11 @@ static int volkswagen_mqb_fwd_hook(int bus_num, CANPacket_t *to_fwd) {
       break;
     case 2:
       if ((addr == MSG_HCA_01) || (addr == MSG_LDW_02)) {
-        // OP takes control of the Heading Control Assist and Lane Departure Warning messages from the camera
+        // openpilot takes over LKAS steering control and related HUD messages from the camera
+        bus_fwd = -1;
+      } else if (volkswagen_longitudinal && ((addr == MSG_ACC_02) || (addr == MSG_ACC_04) ||
+                                             (addr == MSG_ACC_06) || (addr == MSG_ACC_07))) {
+        // openpilot takes over acceleration/braking control and related HUD messages from the stock ACC radar
         bus_fwd = -1;
         } else if (volkswagen_mqb_longitudinal && ((addr == MSG_ACC_06) || (addr == MSG_ACC_07) ||
                                                    (addr == MSG_ACC_02) || (addr == MSG_ACC_04))) {
