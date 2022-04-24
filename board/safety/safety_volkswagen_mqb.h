@@ -87,7 +87,7 @@ static uint8_t volkswagen_mqb_compute_crc(CANPacket_t *to_push) {
   return crc ^ 0xFFU;
 }
 
-static const addr_checks* volkswagen_mqb_init(int16_t param) {
+static const addr_checks* volkswagen_mqb_init(uint32_t param) {
 #ifndef ALLOW_DEBUG
   UNUSED(param);
 #endif
