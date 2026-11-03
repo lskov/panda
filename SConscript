@@ -116,6 +116,10 @@ def build_project(project_name, project, main, extra_flags):
     startup,
     main
   ], LINKFLAGS=[f"-Wl,--section-start,.isr_vector={project['APP_START_ADDRESS']}"] + flags)
+
+  # The linker script is only passed as -T in the flags, so scons does not see it as an input.
+  # Without this, a changed memory layout links from stale objects or a stale CacheDir entry.
+  env.Depends([bs_elf, main_elf], project["LINKER_SCRIPT"])
   main_bin = env.Objcopy(f"{project_dir}/main.bin", main_elf)
   sign_py = File(f"./crypto/sign.py").srcnode().relpath
   env.Command(f"./board/obj/{project_name}.bin.signed", main_bin, f"SETLEN=1 {sign_py} $SOURCE $TARGET {cert_fn}")
