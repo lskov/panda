@@ -33,8 +33,10 @@
 ENTRY(Reset_Handler)
 
 /* Highest address of the user mode stack */
-enter_bootloader_mode = 0x2001FFFC;
-_estack = 0x2001FFFC;    /* end of 128K RAM on AHB bus*/
+enter_bootloader_mode = 0x2001FFFC;  /* boot magic word, read by early_init and the bootstub: keep it here */
+/* Top of the STM32F413's 256K SRAM1 (SRAM1_BASE 0x20000000, 256 KB). This used to be 0x2001FFFC (128K),
+   which left the stack only 212 B above .bss once the opendbc safety code grew, so the stack ran into .bss. */
+_estack = 0x20040000;
 _app_start = 0x08004000; /* Reserve Sector 0(16K) for bootloader */
 
 /* Generate a link error if heap and stack don't fit into RAM */
@@ -151,6 +153,10 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(4);
   } >RAM
+
+  /* Fail the link instead of corrupting RAM at runtime */
+  ASSERT(_ebss <= enter_bootloader_mode, "F4: .bss reaches the boot magic word enter_bootloader_mode")
+  ASSERT(_estack - _ebss >= 0x4000, "F4: less than 16K of stack above .bss")
 
   /* MEMORY_bank1 section, code must be located here explicitly            */
   /* Example: extern int foo(void) __attribute__ ((section (".mb1text"))); */
